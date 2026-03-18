@@ -129,7 +129,8 @@ const library: Exercise[] = [
     group: "Back",
     equipment: "Machine",
     focus: "Shape",
-    animation: "row"
+    animation: "row",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/21.gif"
   },
   {
     id: "pec-fly",
@@ -167,8 +168,24 @@ const library: Exercise[] = [
     animation: "legs",
     mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/161.gif"
   },
-  { id: "plank", name: "Plank", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "plank" },
-  { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "raise" },
+  {
+    id: "plank",
+    name: "Plank",
+    group: "Core",
+    equipment: "Bodyweight",
+    focus: "Core",
+    animation: "plank",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/631.gif"
+  },
+  {
+    id: "leg-raises",
+    name: "Leg Raises",
+    group: "Core",
+    equipment: "Bodyweight",
+    focus: "Core",
+    animation: "raise",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/44.gif"
+  },
   {
     id: "russian-twists",
     name: "Russian Twists",
@@ -194,7 +211,8 @@ const library: Exercise[] = [
     group: "Triceps",
     equipment: "Dumbbell",
     focus: "Shape",
-    animation: "extension"
+    animation: "extension",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/247.gif"
   },
   {
     id: "lateral-raise",
@@ -211,7 +229,8 @@ const library: Exercise[] = [
     group: "Cardio",
     equipment: "Treadmill",
     focus: "Recovery",
-    animation: "walk"
+    animation: "walk",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/322.gif"
   }
 ];
 
