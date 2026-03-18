@@ -11,6 +11,7 @@ type DayKey =
 
 type Goal = "Build muscle" | "Lose fat" | "Lean out";
 type FocusTag = "Strength" | "Shape" | "Recovery" | "Core";
+type EquipmentType = "Machine" | "Cable" | "Dumbbell" | "Bodyweight" | "Treadmill";
 type AnimationKind =
   | "press"
   | "pull"
@@ -62,6 +63,7 @@ type PlannerState = {
   athlete: string;
   goal: Goal;
   trainingDays: number;
+  availableEquipment: EquipmentType[];
   averageSteps: number;
   weightKg: number;
   wakeupTime: string;
@@ -80,6 +82,7 @@ type ActiveWorkout = {
 };
 
 const STORAGE_KEY = "gym-planner-3day-state-v2";
+const equipmentOptions: EquipmentType[] = ["Machine", "Cable", "Dumbbell", "Bodyweight", "Treadmill"];
 
 const dayOrder: DayKey[] = [
   "Monday",
@@ -318,7 +321,23 @@ function cloneWorkoutDay(day: WorkoutDay): WorkoutDay {
   };
 }
 
-function buildPlanForTrainingDays(trainingDays: number): Record<DayKey, WorkoutDay> {
+function pickExercise(
+  preferredIds: string[],
+  availableEquipment: EquipmentType[],
+  fallbackId: string,
+  sets: number,
+  reps: string,
+  rest: string,
+  cue: string
+) {
+  const matched = preferredIds
+    .map((id) => library.find((exercise) => exercise.id === id))
+    .find((exercise) => exercise && availableEquipment.includes(exercise.equipment as EquipmentType));
+
+  return createExercise(matched?.id ?? fallbackId, sets, reps, rest, cue);
+}
+
+function buildPlanForTrainingDays(trainingDays: number, availableEquipment: EquipmentType[]): Record<DayKey, WorkoutDay> {
   const restDay = (label: string, subtitle: string, duration: string): WorkoutDay => ({
     label,
     subtitle,
@@ -333,11 +352,11 @@ function buildPlanForTrainingDays(trainingDays: number): Record<DayKey, WorkoutD
     duration: "45-55 min",
     dayType: "train",
     exercises: [
-      createExercise("lat-pulldown", 3, "10-12", "45-60 sec", "Pull to upper chest with control."),
-      createExercise("supported-row", 3, "10-12", "45-60 sec", "Drive elbows back, pause at the end."),
-      createExercise("shoulder-press", 3, "10", "45-60 sec", "Do not arch your back."),
-      createExercise("db-curl", 3, "12", "45-60 sec", "Control both the lift and the lowering."),
-      createExercise("lateral-raise", 3, "12", "45-60 sec", "Raise with elbows leading.")
+      pickExercise(["lat-pulldown", "supported-row"], availableEquipment, "lat-pulldown", 3, "10-12", "45-60 sec", "Pull to upper chest with control."),
+      pickExercise(["supported-row", "lat-pulldown"], availableEquipment, "supported-row", 3, "10-12", "45-60 sec", "Drive elbows back, pause at the end."),
+      pickExercise(["shoulder-press", "lateral-raise"], availableEquipment, "shoulder-press", 3, "10", "45-60 sec", "Do not arch your back."),
+      pickExercise(["db-curl"], availableEquipment, "db-curl", 3, "12", "45-60 sec", "Control both the lift and the lowering."),
+      pickExercise(["lateral-raise", "shoulder-press"], availableEquipment, "lateral-raise", 3, "12", "45-60 sec", "Raise with elbows leading.")
     ]
   });
 
@@ -347,11 +366,11 @@ function buildPlanForTrainingDays(trainingDays: number): Record<DayKey, WorkoutD
     duration: "45-55 min",
     dayType: "train",
     exercises: [
-      createExercise("leg-press", 3, "12", "45-60 sec", "Full range, no bouncing."),
-      createExercise("leg-extension", 3, "12", "45-60 sec", "Pause at the top each rep."),
-      createExercise("leg-curl", 3, "12", "45-60 sec", "Control the return."),
-      createExercise("plank", 3, "30-45 sec", "30 sec", "Brace and keep hips level."),
-      createExercise("leg-raises", 3, "12", "30 sec", "Do not swing.")
+      pickExercise(["leg-press", "leg-extension"], availableEquipment, "leg-press", 3, "12", "45-60 sec", "Full range, no bouncing."),
+      pickExercise(["leg-extension", "leg-press"], availableEquipment, "leg-extension", 3, "12", "45-60 sec", "Pause at the top each rep."),
+      pickExercise(["leg-curl", "leg-press"], availableEquipment, "leg-curl", 3, "12", "45-60 sec", "Control the return."),
+      pickExercise(["plank"], availableEquipment, "plank", 3, "30-45 sec", "30 sec", "Brace and keep hips level."),
+      pickExercise(["leg-raises", "russian-twists"], availableEquipment, "leg-raises", 3, "12", "30 sec", "Do not swing.")
     ]
   });
 
@@ -398,11 +417,12 @@ const createPlanner = (): PlannerState => ({
   athlete: "Saika",
   goal: "Build muscle",
   trainingDays: 3,
+  availableEquipment: ["Machine", "Cable", "Dumbbell", "Bodyweight", "Treadmill"],
   averageSteps: 13500,
   weightKg: 72,
   wakeupTime: "3:30 AM",
   proteinTarget: "90-120g",
-  days: buildPlanForTrainingDays(3),
+  days: buildPlanForTrainingDays(3, ["Machine", "Cable", "Dumbbell", "Bodyweight", "Treadmill"]),
   notes:
     "You already have the fat-loss base from daily steps. Use this plan to build shape, get stronger, and stay consistent without burning out."
 });
@@ -683,12 +703,26 @@ export default function App() {
   const applyAiWorkoutUpdate = () => {
     setPlanner((current) => ({
       ...current,
-      days: buildPlanForTrainingDays(current.trainingDays),
-      notes: `AI updated your week for ${current.trainingDays} training days. Keep steps high, progress weights slowly, and use recovery days to stay fresh.`
+      days: buildPlanForTrainingDays(current.trainingDays, current.availableEquipment),
+      notes: `AI updated your week for ${current.trainingDays} training days using your available equipment: ${current.availableEquipment.join(", ")}.`
     }));
     setActiveWorkout(null);
     setRestRemaining(0);
     setSelectedDay("Monday");
+  };
+
+  const toggleEquipment = (equipment: EquipmentType) => {
+    setPlanner((current) => {
+      const exists = current.availableEquipment.includes(equipment);
+      const nextEquipment = exists
+        ? current.availableEquipment.filter((item) => item !== equipment)
+        : [...current.availableEquipment, equipment];
+
+      return {
+        ...current,
+        availableEquipment: nextEquipment.length > 0 ? nextEquipment : current.availableEquipment
+      };
+    });
   };
 
   const completeCurrentSet = () => {
@@ -862,6 +896,23 @@ export default function App() {
                 ))}
               </select>
             </label>
+            <div className="equipment-picker">
+              <span>Available equipment</span>
+              <div className="equipment-picker__chips">
+                {equipmentOptions.map((equipment) => (
+                  <button
+                    key={equipment}
+                    type="button"
+                    className={`chip-button ${
+                      planner.availableEquipment.includes(equipment) ? "chip-button--active" : ""
+                    }`}
+                    onClick={() => toggleEquipment(equipment)}
+                  >
+                    {equipment}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label>
               Daily steps
               <input

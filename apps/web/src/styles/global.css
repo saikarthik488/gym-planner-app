@@ -189,6 +189,18 @@ label {
   margin: 1rem 0;
 }
 
+.equipment-picker {
+  display: grid;
+  gap: 0.7rem;
+  color: var(--muted);
+}
+
+.equipment-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .chip-button,
 .pill,
 .check-toggle {
