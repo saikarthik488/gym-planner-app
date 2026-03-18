@@ -9,15 +9,15 @@ type DayKey =
   | "Saturday"
   | "Sunday";
 
-type Goal = "Build muscle" | "Lose fat" | "Get stronger" | "Stay consistent";
-type Split = "Push Pull Legs" | "Upper Lower" | "Full Body";
+type Goal = "Build muscle" | "Lose fat" | "Lean out";
+type FocusTag = "Strength" | "Shape" | "Recovery" | "Core";
 
 type Exercise = {
   id: string;
   name: string;
   group: string;
   equipment: string;
-  focus: string;
+  focus: FocusTag;
 };
 
 type WorkoutExercise = {
@@ -25,27 +25,29 @@ type WorkoutExercise = {
   sets: number;
   reps: string;
   rest: string;
-  rpe: string;
-  notes: string;
+  cue: string;
   completed: boolean;
 };
 
 type WorkoutDay = {
   label: string;
-  theme: string;
+  subtitle: string;
   duration: string;
+  dayType: "train" | "rest";
   exercises: WorkoutExercise[];
 };
 
 type PlannerState = {
   athlete: string;
   goal: Goal;
-  split: Split;
-  days: Record<DayKey, WorkoutDay | null>;
+  averageSteps: number;
+  wakeupTime: string;
+  proteinTarget: string;
+  days: Record<DayKey, WorkoutDay>;
   notes: string;
 };
 
-const STORAGE_KEY = "gymverse-planner-state";
+const STORAGE_KEY = "gym-planner-3day-state";
 
 const dayOrder: DayKey[] = [
   "Monday",
@@ -58,24 +60,27 @@ const dayOrder: DayKey[] = [
 ];
 
 const library: Exercise[] = [
-  { id: "bench", name: "Barbell Bench Press", group: "Chest", equipment: "Barbell", focus: "Strength" },
-  { id: "incline-db", name: "Incline Dumbbell Press", group: "Chest", equipment: "Dumbbell", focus: "Hypertrophy" },
-  { id: "dip", name: "Weighted Dips", group: "Chest", equipment: "Bodyweight", focus: "Strength" },
-  { id: "ohp", name: "Standing Overhead Press", group: "Shoulders", equipment: "Barbell", focus: "Strength" },
-  { id: "lateral", name: "Cable Lateral Raise", group: "Shoulders", equipment: "Cable", focus: "Pump" },
-  { id: "rope-pushdown", name: "Rope Pushdown", group: "Triceps", equipment: "Cable", focus: "Isolation" },
-  { id: "pullup", name: "Weighted Pull-Up", group: "Back", equipment: "Bodyweight", focus: "Strength" },
-  { id: "barbell-row", name: "Barbell Row", group: "Back", equipment: "Barbell", focus: "Strength" },
-  { id: "lat-pulldown", name: "Lat Pulldown", group: "Back", equipment: "Cable", focus: "Hypertrophy" },
-  { id: "face-pull", name: "Face Pull", group: "Rear Delts", equipment: "Cable", focus: "Isolation" },
-  { id: "curl", name: "EZ Bar Curl", group: "Biceps", equipment: "Barbell", focus: "Isolation" },
-  { id: "hammer", name: "Hammer Curl", group: "Biceps", equipment: "Dumbbell", focus: "Hypertrophy" },
-  { id: "squat", name: "Back Squat", group: "Quads", equipment: "Barbell", focus: "Strength" },
-  { id: "rdl", name: "Romanian Deadlift", group: "Hamstrings", equipment: "Barbell", focus: "Strength" },
-  { id: "leg-press", name: "Leg Press", group: "Quads", equipment: "Machine", focus: "Hypertrophy" },
-  { id: "leg-curl", name: "Seated Leg Curl", group: "Hamstrings", equipment: "Machine", focus: "Isolation" },
-  { id: "calf", name: "Standing Calf Raise", group: "Calves", equipment: "Machine", focus: "Isolation" },
-  { id: "deadlift", name: "Trap Bar Deadlift", group: "Posterior Chain", equipment: "Barbell", focus: "Strength" }
+  { id: "chest-press", name: "Chest Press", group: "Chest", equipment: "Machine", focus: "Shape" },
+  { id: "lat-pulldown", name: "Lat Pulldown", group: "Back", equipment: "Cable", focus: "Shape" },
+  { id: "shoulder-press", name: "Shoulder Press", group: "Shoulders", equipment: "Machine", focus: "Strength" },
+  { id: "supported-row", name: "Supported Row", group: "Back", equipment: "Machine", focus: "Shape" },
+  { id: "pec-fly", name: "Pec Fly", group: "Chest", equipment: "Machine", focus: "Shape" },
+  { id: "leg-press", name: "Leg Press", group: "Quads", equipment: "Machine", focus: "Strength" },
+  { id: "leg-extension", name: "Leg Extension", group: "Quads", equipment: "Machine", focus: "Shape" },
+  { id: "leg-curl", name: "Leg Curl", group: "Hamstrings", equipment: "Machine", focus: "Shape" },
+  { id: "plank", name: "Plank", group: "Core", equipment: "Bodyweight", focus: "Core" },
+  { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight", focus: "Core" },
+  { id: "russian-twists", name: "Russian Twists", group: "Core", equipment: "Bodyweight", focus: "Core" },
+  { id: "db-curl", name: "Dumbbell Bicep Curl", group: "Biceps", equipment: "Dumbbell", focus: "Shape" },
+  {
+    id: "tricep-overhead",
+    name: "Tricep Overhead Extension",
+    group: "Triceps",
+    equipment: "Dumbbell",
+    focus: "Shape"
+  },
+  { id: "lateral-raise", name: "Lateral Raise", group: "Shoulders", equipment: "Dumbbell", focus: "Shape" },
+  { id: "treadmill", name: "Treadmill Walk", group: "Cardio", equipment: "Treadmill", focus: "Recovery" }
 ];
 
 const createExercise = (
@@ -83,190 +88,112 @@ const createExercise = (
   sets: number,
   reps: string,
   rest: string,
-  rpe: string,
-  notes = ""
+  cue: string
 ): WorkoutExercise => ({
   exerciseId,
   sets,
   reps,
   rest,
-  rpe,
-  notes,
+  cue,
   completed: false
 });
 
-const templates: Record<Split, Partial<Record<DayKey, WorkoutDay>>> = {
-  "Push Pull Legs": {
-    Monday: {
-      label: "Push A",
-      theme: "Chest, shoulders, triceps",
-      duration: "65 min",
-      exercises: [
-        createExercise("bench", 4, "6-8", "2 min", "8"),
-        createExercise("incline-db", 3, "8-10", "90 sec", "8"),
-        createExercise("ohp", 4, "5-8", "2 min", "8"),
-        createExercise("lateral", 4, "12-15", "60 sec", "9"),
-        createExercise("rope-pushdown", 3, "12-15", "60 sec", "9")
-      ]
-    },
-    Tuesday: {
-      label: "Pull A",
-      theme: "Lats, upper back, biceps",
-      duration: "70 min",
-      exercises: [
-        createExercise("pullup", 4, "5-8", "2 min", "8"),
-        createExercise("barbell-row", 4, "6-8", "2 min", "8"),
-        createExercise("lat-pulldown", 3, "10-12", "75 sec", "9"),
-        createExercise("face-pull", 3, "12-15", "45 sec", "9"),
-        createExercise("curl", 3, "10-12", "60 sec", "9")
-      ]
-    },
-    Thursday: {
-      label: "Legs",
-      theme: "Quads, hamstrings, glutes",
-      duration: "75 min",
-      exercises: [
-        createExercise("squat", 4, "5-8", "2-3 min", "8"),
-        createExercise("rdl", 4, "6-8", "2 min", "8"),
-        createExercise("leg-press", 3, "10-12", "90 sec", "9"),
-        createExercise("leg-curl", 3, "12-15", "60 sec", "9"),
-        createExercise("calf", 4, "12-20", "45 sec", "9")
-      ]
-    },
-    Friday: {
-      label: "Push B",
-      theme: "Upper push volume",
-      duration: "60 min",
-      exercises: [
-        createExercise("dip", 4, "6-10", "2 min", "8"),
-        createExercise("incline-db", 3, "10-12", "75 sec", "9"),
-        createExercise("lateral", 4, "15-20", "45 sec", "9"),
-        createExercise("rope-pushdown", 4, "12-15", "45 sec", "9")
-      ]
-    },
-    Saturday: {
-      label: "Pull B",
-      theme: "Back density and arms",
-      duration: "55 min",
-      exercises: [
-        createExercise("barbell-row", 4, "6-8", "2 min", "8"),
-        createExercise("lat-pulldown", 3, "8-12", "75 sec", "9"),
-        createExercise("hammer", 3, "10-12", "60 sec", "9"),
-        createExercise("face-pull", 3, "15-20", "45 sec", "9")
-      ]
-    }
+const defaultPlan: Record<DayKey, WorkoutDay> = {
+  Monday: {
+    label: "Day 1 Upper Body",
+    subtitle: "Chest + back + shoulders",
+    duration: "45-55 min",
+    dayType: "train",
+    exercises: [
+      createExercise("chest-press", 3, "10-12", "45-60 sec", "Last 2 reps should feel hard."),
+      createExercise("lat-pulldown", 3, "10-12", "45-60 sec", "Pull elbows down, do not yank."),
+      createExercise("shoulder-press", 3, "10", "45-60 sec", "Stay controlled on the way down."),
+      createExercise("supported-row", 3, "10-12", "45-60 sec", "Squeeze shoulder blades together."),
+      createExercise("pec-fly", 3, "12", "45-60 sec", "Slow stretch, smooth return."),
+      createExercise("treadmill", 1, "5-10 min", "0 sec", "Finish easy, do not turn it into a sprint.")
+    ]
   },
-  "Upper Lower": {
-    Monday: {
-      label: "Upper A",
-      theme: "Heavy upper body",
-      duration: "70 min",
-      exercises: [
-        createExercise("bench", 4, "5-8", "2 min", "8"),
-        createExercise("pullup", 4, "5-8", "2 min", "8"),
-        createExercise("ohp", 3, "6-8", "90 sec", "8"),
-        createExercise("barbell-row", 3, "6-8", "90 sec", "8"),
-        createExercise("curl", 3, "10-12", "60 sec", "9")
-      ]
-    },
-    Tuesday: {
-      label: "Lower A",
-      theme: "Squat dominant",
-      duration: "75 min",
-      exercises: [
-        createExercise("squat", 4, "5-8", "2-3 min", "8"),
-        createExercise("leg-press", 3, "10-12", "90 sec", "9"),
-        createExercise("leg-curl", 3, "12-15", "60 sec", "9"),
-        createExercise("calf", 4, "12-20", "45 sec", "9")
-      ]
-    },
-    Thursday: {
-      label: "Upper B",
-      theme: "Volume upper body",
-      duration: "65 min",
-      exercises: [
-        createExercise("incline-db", 4, "8-10", "90 sec", "8"),
-        createExercise("lat-pulldown", 4, "8-12", "75 sec", "9"),
-        createExercise("lateral", 4, "12-15", "45 sec", "9"),
-        createExercise("rope-pushdown", 3, "12-15", "45 sec", "9"),
-        createExercise("hammer", 3, "10-12", "60 sec", "9")
-      ]
-    },
-    Friday: {
-      label: "Lower B",
-      theme: "Hinge dominant",
-      duration: "70 min",
-      exercises: [
-        createExercise("deadlift", 4, "3-5", "2-3 min", "8"),
-        createExercise("rdl", 3, "6-8", "2 min", "8"),
-        createExercise("leg-press", 3, "10-12", "90 sec", "9"),
-        createExercise("calf", 4, "12-20", "45 sec", "9")
-      ]
-    }
+  Tuesday: {
+    label: "Recovery Day",
+    subtitle: "Steps, stretch, recover",
+    duration: "13.5k steps",
+    dayType: "rest",
+    exercises: []
   },
-  "Full Body": {
-    Monday: {
-      label: "Full Body A",
-      theme: "Squat, press, pull",
-      duration: "60 min",
-      exercises: [
-        createExercise("squat", 4, "5-8", "2 min", "8"),
-        createExercise("bench", 4, "5-8", "2 min", "8"),
-        createExercise("barbell-row", 4, "6-8", "90 sec", "8"),
-        createExercise("lateral", 3, "12-15", "45 sec", "9")
-      ]
-    },
-    Wednesday: {
-      label: "Full Body B",
-      theme: "Hinge, incline, vertical pull",
-      duration: "60 min",
-      exercises: [
-        createExercise("rdl", 4, "6-8", "2 min", "8"),
-        createExercise("incline-db", 4, "8-10", "90 sec", "8"),
-        createExercise("pullup", 4, "5-8", "2 min", "8"),
-        createExercise("curl", 3, "10-12", "60 sec", "9")
-      ]
-    },
-    Friday: {
-      label: "Full Body C",
-      theme: "Leg drive and accessories",
-      duration: "55 min",
-      exercises: [
-        createExercise("leg-press", 4, "10-12", "90 sec", "9"),
-        createExercise("ohp", 4, "6-8", "90 sec", "8"),
-        createExercise("lat-pulldown", 4, "8-12", "75 sec", "9"),
-        createExercise("rope-pushdown", 3, "12-15", "45 sec", "9")
-      ]
-    }
+  Wednesday: {
+    label: "Day 3 Lower Body",
+    subtitle: "Legs + core",
+    duration: "45-55 min",
+    dayType: "train",
+    exercises: [
+      createExercise("leg-press", 3, "12", "45-60 sec", "Drive through the full foot."),
+      createExercise("leg-extension", 3, "12", "45-60 sec", "Pause briefly at the top."),
+      createExercise("leg-curl", 3, "12", "45-60 sec", "Control the lowering phase."),
+      createExercise("plank", 3, "30-45 sec", "30 sec", "Brace like someone will punch your stomach."),
+      createExercise("leg-raises", 3, "12", "30 sec", "Do not swing your hips."),
+      createExercise("russian-twists", 3, "20", "30 sec", "Rotate your ribs, not just your arms.")
+    ]
+  },
+  Thursday: {
+    label: "Recovery Day",
+    subtitle: "Walk, mobility, reset",
+    duration: "13.5k steps",
+    dayType: "rest",
+    exercises: []
+  },
+  Friday: {
+    label: "Day 5 Full Body",
+    subtitle: "Best day for results",
+    duration: "50-60 min",
+    dayType: "train",
+    exercises: [
+      createExercise("chest-press", 3, "10", "45-60 sec", "Build pressure from the first rep."),
+      createExercise("lat-pulldown", 3, "10", "45-60 sec", "Stay tall and smooth."),
+      createExercise("leg-press", 3, "12", "45-60 sec", "Full range without bouncing."),
+      createExercise("db-curl", 3, "12", "45-60 sec", "Keep elbows quiet."),
+      createExercise("tricep-overhead", 3, "12", "45-60 sec", "Stretch fully behind the head."),
+      createExercise("lateral-raise", 3, "12", "45-60 sec", "Lead with the elbows, not the wrists.")
+    ]
+  },
+  Saturday: {
+    label: "Weekend Recovery",
+    subtitle: "Light activity only",
+    duration: "Walk + mobility",
+    dayType: "rest",
+    exercises: []
+  },
+  Sunday: {
+    label: "Weekend Recovery",
+    subtitle: "Light activity only",
+    duration: "Walk + mobility",
+    dayType: "rest",
+    exercises: []
   }
 };
 
-const createPlanner = (split: Split): PlannerState => ({
+const createPlanner = (): PlannerState => ({
   athlete: "Saika",
   goal: "Build muscle",
-  split,
-  days: dayOrder.reduce<Record<DayKey, WorkoutDay | null>>((acc, day) => {
-    const workout = templates[split][day];
-    acc[day] = workout
-      ? {
-          ...workout,
-          exercises: workout.exercises.map((exercise) => ({ ...exercise }))
-        }
-      : null;
-    return acc;
-  }, {} as Record<DayKey, WorkoutDay | null>),
+  averageSteps: 13500,
+  wakeupTime: "3:30 AM",
+  proteinTarget: "90-120g",
+  days: Object.fromEntries(
+    dayOrder.map((day) => [
+      day,
+      {
+        ...defaultPlan[day],
+        exercises: defaultPlan[day].exercises.map((exercise) => ({ ...exercise }))
+      }
+    ])
+  ) as Record<DayKey, WorkoutDay>,
   notes:
-    "Focus on 1-2 reps in reserve for compounds, add load when you hit the top of the rep range across all sets."
+    "You already have the fat-loss base from daily steps. Use this plan to build shape, get stronger, and stay consistent without burning out."
 });
 
 const parseStoredState = (): PlannerState | null => {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    return JSON.parse(raw) as PlannerState;
+    return raw ? (JSON.parse(raw) as PlannerState) : null;
   } catch {
     return null;
   }
@@ -278,8 +205,40 @@ function getExercise(exerciseId: string) {
   return library.find((exercise) => exercise.id === exerciseId);
 }
 
+function createAiTips(planner: PlannerState, selectedDay: DayKey, completionRate: number) {
+  const workout = planner.days[selectedDay];
+  const isTrainingDay = workout.dayType === "train";
+
+  return [
+    {
+      title: "AI read on your routine",
+      body:
+        planner.averageSteps >= 13000
+          ? `Your average of ${planner.averageSteps.toLocaleString()} steps is already doing heavy work for fat loss. Keep gym intensity focused on muscle shape, not extra exhaustion.`
+          : "Your daily movement is solid, so keep rest days active and save energy for quality lifting."
+    },
+    {
+      title: isTrainingDay ? "Today's focus" : "Recovery focus",
+      body: isTrainingDay
+        ? `${workout.label} should feel challenging but controlled. Use weights that make the last 2 reps hard, rest ${workout.exercises[0]?.rest ?? "45-60 sec"}, and do not rush reps.`
+        : "Treat today as active recovery. Hit your walking target, loosen up tight areas, and come back fresh for the next gym session."
+    },
+    {
+      title: "Progress cue",
+      body:
+        completionRate >= 70
+          ? "You are stacking consistency well. Next lever is simple progressive overload: when all sets feel clean, increase weight slightly next week."
+          : "Right now the best improvement is consistency. Finish your planned sets first, then think about adding more load."
+    },
+    {
+      title: "Nutrition reminder",
+      body: `Keep meals regular and aim for ${planner.proteinTarget} protein. With your step count, skipping meals will hurt gym performance more than it helps fat loss.`
+    }
+  ];
+}
+
 export default function App() {
-  const [planner, setPlanner] = useState<PlannerState>(() => parseStoredState() ?? createPlanner("Push Pull Legs"));
+  const [planner, setPlanner] = useState<PlannerState>(() => parseStoredState() ?? createPlanner());
   const [selectedDay, setSelectedDay] = useState<DayKey>(today);
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("All");
@@ -289,55 +248,34 @@ export default function App() {
   }, [planner]);
 
   const selectedWorkout = planner.days[selectedDay];
-
   const groups = useMemo(() => ["All", ...new Set(library.map((exercise) => exercise.group))], []);
 
   const filteredLibrary = useMemo(
     () =>
       library.filter((exercise) => {
         const matchesGroup = groupFilter === "All" || exercise.group === groupFilter;
+        const term = query.toLowerCase().trim();
         const matchesQuery =
-          query.trim() === "" ||
-          exercise.name.toLowerCase().includes(query.toLowerCase()) ||
-          exercise.focus.toLowerCase().includes(query.toLowerCase());
+          term === "" ||
+          exercise.name.toLowerCase().includes(term) ||
+          exercise.group.toLowerCase().includes(term) ||
+          exercise.focus.toLowerCase().includes(term);
 
         return matchesGroup && matchesQuery;
       }),
     [groupFilter, query]
   );
 
-  const weeklySets = useMemo(
-    () =>
-      dayOrder.reduce((total, day) => {
-        const workout = planner.days[day];
-        if (!workout) {
-          return total;
-        }
-
-        return total + workout.exercises.reduce((sum, exercise) => sum + exercise.sets, 0);
-      }, 0),
-    [planner.days]
-  );
-
-  const completionRate = useMemo(() => {
-    const exercises = dayOrder.flatMap((day) => planner.days[day]?.exercises ?? []);
-    if (exercises.length === 0) {
-      return 0;
-    }
-
-    const completed = exercises.filter((exercise) => exercise.completed).length;
-    return Math.round((completed / exercises.length) * 100);
-  }, [planner.days]);
-
-  const activeDays = dayOrder.filter((day) => planner.days[day]).length;
+  const allExercises = dayOrder.flatMap((day) => planner.days[day].exercises);
+  const completedCount = allExercises.filter((exercise) => exercise.completed).length;
+  const completionRate = allExercises.length === 0 ? 0 : Math.round((completedCount / allExercises.length) * 100);
+  const weeklySets = allExercises.reduce((sum, exercise) => sum + exercise.sets, 0);
+  const gymDays = dayOrder.filter((day) => planner.days[day].dayType === "train").length;
+  const aiTips = createAiTips(planner, selectedDay, completionRate);
 
   const toggleExercise = (day: DayKey, index: number) => {
     setPlanner((current) => {
       const workout = current.days[day];
-      if (!workout) {
-        return current;
-      }
-
       const exercises = workout.exercises.map((exercise, exerciseIndex) =>
         exerciseIndex === index ? { ...exercise, completed: !exercise.completed } : exercise
       );
@@ -352,32 +290,10 @@ export default function App() {
     });
   };
 
-  const applyTemplate = (split: Split) => {
-    setPlanner((current) => ({
-      ...createPlanner(split),
-      athlete: current.athlete,
-      goal: current.goal,
-      notes: current.notes
-    }));
-  };
-
   const addExerciseToDay = (exerciseId: string) => {
     setPlanner((current) => {
       const workout = current.days[selectedDay];
-      if (!workout) {
-        return {
-          ...current,
-          days: {
-            ...current.days,
-            [selectedDay]: {
-              label: `${selectedDay} Session`,
-              theme: "Custom workout",
-              duration: "55 min",
-              exercises: [createExercise(exerciseId, 3, "8-12", "60 sec", "8")]
-            }
-          }
-        };
-      }
+      const nextExercise = createExercise(exerciseId, 3, "12", "45-60 sec", "Stay controlled and smooth.");
 
       return {
         ...current,
@@ -385,69 +301,57 @@ export default function App() {
           ...current.days,
           [selectedDay]: {
             ...workout,
-            exercises: [...workout.exercises, createExercise(exerciseId, 3, "8-12", "60 sec", "8")]
+            dayType: "train",
+            exercises: [...workout.exercises, nextExercise]
           }
         }
       };
     });
   };
 
-  const updateWorkoutField = (day: DayKey, field: "label" | "theme" | "duration", value: string) => {
-    setPlanner((current) => {
-      const workout = current.days[day];
-      if (!workout) {
-        return current;
+  const updateWorkoutField = (day: DayKey, field: "label" | "subtitle" | "duration", value: string) => {
+    setPlanner((current) => ({
+      ...current,
+      days: {
+        ...current.days,
+        [day]: { ...current.days[day], [field]: value }
       }
-
-      return {
-        ...current,
-        days: {
-          ...current.days,
-          [day]: { ...workout, [field]: value }
-        }
-      };
-    });
+    }));
   };
 
   return (
     <main className="planner-app">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">Gym planner</p>
-          <h1>Build your week like a serious training block.</h1>
+          <p className="eyebrow">Your 3-day plan</p>
+          <h1>Walk a lot. Lift smart. Get leaner and more defined.</h1>
           <p className="hero-text">
-            Static, frontend-only, and GitHub-ready. Your split, exercises, notes, and completed sets all persist in
-            local storage.
+            Built around your average {planner.averageSteps.toLocaleString()} daily steps, this plan keeps fat loss
+            moving while using 3 gym days to add shape, strength, and consistency.
           </p>
-          <div className="hero-actions">
-            {(["Push Pull Legs", "Upper Lower", "Full Body"] as Split[]).map((split) => (
-              <button
-                key={split}
-                type="button"
-                className={`chip-button ${planner.split === split ? "chip-button--active" : ""}`}
-                onClick={() => applyTemplate(split)}
-              >
-                {split}
-              </button>
-            ))}
+
+          <div className="hero-points">
+            <span>Day 1: Upper body</span>
+            <span>Day 3: Lower body + core</span>
+            <span>Day 5: Full body</span>
           </div>
         </div>
 
         <div className="hero-stack">
           <article className="metric-card">
-            <span>Weekly sets</span>
-            <strong>{weeklySets}</strong>
-            <small>Across {activeDays} training days</small>
+            <span>Average steps</span>
+            <strong>{planner.averageSteps.toLocaleString()}</strong>
+            <small>Your fat-loss engine is already running daily</small>
           </article>
           <article className="metric-card">
-            <span>Completion</span>
-            <strong>{completionRate}%</strong>
-            <small>Track each exercise as you finish it</small>
+            <span>Weekly gym days</span>
+            <strong>{gymDays}</strong>
+            <small>Enough to build shape without overloading recovery</small>
           </article>
           <article className="metric-card metric-card--accent">
-            <span>Today</span>
-            <strong>{selectedWorkout?.label ?? "Recovery"}</strong>
-            <small>{selectedWorkout?.duration ?? "Mobility / walk / reset"}</small>
+            <span>Completion</span>
+            <strong>{completionRate}%</strong>
+            <small>{completedCount} of {allExercises.length} planned exercise blocks complete</small>
           </article>
         </div>
       </section>
@@ -456,7 +360,7 @@ export default function App() {
         <article className="panel panel--profile">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Athlete profile</p>
+              <p className="eyebrow">Personal setup</p>
               <h2>Plan settings</h2>
             </div>
           </div>
@@ -467,28 +371,51 @@ export default function App() {
               <input
                 value={planner.athlete}
                 onChange={(event) => setPlanner((current) => ({ ...current, athlete: event.target.value }))}
-                placeholder="Your name"
               />
             </label>
             <label>
-              Primary goal
+              Goal
               <select
                 value={planner.goal}
-                onChange={(event) =>
-                  setPlanner((current) => ({ ...current, goal: event.target.value as Goal }))
-                }
+                onChange={(event) => setPlanner((current) => ({ ...current, goal: event.target.value as Goal }))}
               >
-                {(["Build muscle", "Lose fat", "Get stronger", "Stay consistent"] as Goal[]).map((goal) => (
+                {(["Build muscle", "Lose fat", "Lean out"] as Goal[]).map((goal) => (
                   <option key={goal} value={goal}>
                     {goal}
                   </option>
                 ))}
               </select>
             </label>
+            <label>
+              Daily steps
+              <input
+                value={planner.averageSteps}
+                onChange={(event) =>
+                  setPlanner((current) => ({
+                    ...current,
+                    averageSteps: Number(event.target.value.replace(/\D/g, "")) || 0
+                  }))
+                }
+              />
+            </label>
+            <label>
+              Wake-up routine
+              <input
+                value={planner.wakeupTime}
+                onChange={(event) => setPlanner((current) => ({ ...current, wakeupTime: event.target.value }))}
+              />
+            </label>
+            <label>
+              Protein target
+              <input
+                value={planner.proteinTarget}
+                onChange={(event) => setPlanner((current) => ({ ...current, proteinTarget: event.target.value }))}
+              />
+            </label>
           </div>
 
           <label>
-            Coaching notes
+            Coaching note
             <textarea
               rows={4}
               value={planner.notes}
@@ -497,11 +424,30 @@ export default function App() {
           </label>
         </article>
 
+        <article className="panel panel--ai">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">AI coach</p>
+              <h2>Smart guidance</h2>
+            </div>
+            <span className="pill">Frontend only</span>
+          </div>
+
+          <div className="ai-grid">
+            {aiTips.map((tip) => (
+              <article key={tip.title} className="ai-card">
+                <h3>{tip.title}</h3>
+                <p>{tip.body}</p>
+              </article>
+            ))}
+          </div>
+        </article>
+
         <article className="panel panel--week">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Weekly split</p>
-              <h2>{planner.split}</h2>
+              <p className="eyebrow">Weekly structure</p>
+              <h2>3-day split</h2>
             </div>
           </div>
 
@@ -516,7 +462,8 @@ export default function App() {
                   onClick={() => setSelectedDay(day)}
                 >
                   <span>{day.slice(0, 3)}</span>
-                  <strong>{workout?.label ?? "Rest"}</strong>
+                  <strong>{workout.label}</strong>
+                  <small>{workout.subtitle}</small>
                 </button>
               );
             })}
@@ -526,88 +473,83 @@ export default function App() {
         <article className="panel panel--session">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Session builder</p>
-              <h2>{selectedDay}</h2>
+              <p className="eyebrow">{selectedWorkout.dayType === "train" ? "Gym day" : "Recovery day"}</p>
+              <h2>{selectedWorkout.label}</h2>
             </div>
-            <span className="pill">{selectedWorkout?.duration ?? "Recovery day"}</span>
+            <span className="pill">{selectedWorkout.duration}</span>
           </div>
 
-          {selectedWorkout ? (
-            <>
-              <div className="session-meta">
-                <label>
-                  Workout name
-                  <input
-                    value={selectedWorkout.label}
-                    onChange={(event) => updateWorkoutField(selectedDay, "label", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Focus
-                  <input
-                    value={selectedWorkout.theme}
-                    onChange={(event) => updateWorkoutField(selectedDay, "theme", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Duration
-                  <input
-                    value={selectedWorkout.duration}
-                    onChange={(event) => updateWorkoutField(selectedDay, "duration", event.target.value)}
-                  />
-                </label>
-              </div>
+          <div className="session-meta">
+            <label>
+              Day title
+              <input
+                value={selectedWorkout.label}
+                onChange={(event) => updateWorkoutField(selectedDay, "label", event.target.value)}
+              />
+            </label>
+            <label>
+              Focus
+              <input
+                value={selectedWorkout.subtitle}
+                onChange={(event) => updateWorkoutField(selectedDay, "subtitle", event.target.value)}
+              />
+            </label>
+            <label>
+              Duration
+              <input
+                value={selectedWorkout.duration}
+                onChange={(event) => updateWorkoutField(selectedDay, "duration", event.target.value)}
+              />
+            </label>
+          </div>
 
-              <div className="exercise-list">
-                {selectedWorkout.exercises.map((entry, index) => {
-                  const exercise = getExercise(entry.exerciseId);
+          {selectedWorkout.dayType === "train" ? (
+            <div className="exercise-list">
+              {selectedWorkout.exercises.map((entry, index) => {
+                const exercise = getExercise(entry.exerciseId);
 
-                  return (
-                    <article key={`${entry.exerciseId}-${index}`} className="exercise-card">
-                      <button
-                        type="button"
-                        className={`check-toggle ${entry.completed ? "check-toggle--done" : ""}`}
-                        onClick={() => toggleExercise(selectedDay, index)}
-                        aria-label={`Toggle ${exercise?.name ?? "exercise"} completed`}
-                      >
-                        {entry.completed ? "Done" : "Mark"}
-                      </button>
+                return (
+                  <article key={`${entry.exerciseId}-${index}`} className="exercise-card">
+                    <button
+                      type="button"
+                      className={`check-toggle ${entry.completed ? "check-toggle--done" : ""}`}
+                      onClick={() => toggleExercise(selectedDay, index)}
+                    >
+                      {entry.completed ? "Done" : "Mark"}
+                    </button>
 
-                      <div className="exercise-copy">
-                        <div className="exercise-topline">
-                          <h3>{exercise?.name ?? "Exercise"}</h3>
-                          <span>{exercise?.group ?? "Custom"}</span>
-                        </div>
-                        <p>{selectedWorkout.theme}</p>
+                    <div className="exercise-copy">
+                      <div className="exercise-topline">
+                        <h3>{exercise?.name ?? "Exercise"}</h3>
+                        <span>{exercise?.group ?? "Custom"}</span>
                       </div>
+                      <p>{entry.cue}</p>
+                    </div>
 
-                      <dl className="exercise-stats">
-                        <div>
-                          <dt>Sets</dt>
-                          <dd>{entry.sets}</dd>
-                        </div>
-                        <div>
-                          <dt>Reps</dt>
-                          <dd>{entry.reps}</dd>
-                        </div>
-                        <div>
-                          <dt>Rest</dt>
-                          <dd>{entry.rest}</dd>
-                        </div>
-                        <div>
-                          <dt>RPE</dt>
-                          <dd>{entry.rpe}</dd>
-                        </div>
-                      </dl>
-                    </article>
-                  );
-                })}
-              </div>
-            </>
+                    <dl className="exercise-stats">
+                      <div>
+                        <dt>Sets</dt>
+                        <dd>{entry.sets}</dd>
+                      </div>
+                      <div>
+                        <dt>Reps</dt>
+                        <dd>{entry.reps}</dd>
+                      </div>
+                      <div>
+                        <dt>Rest</dt>
+                        <dd>{entry.rest}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                );
+              })}
+            </div>
           ) : (
             <div className="empty-state">
-              <h3>Recovery / rest day</h3>
-              <p>Add an exercise from the library if you want to turn this into a custom session.</p>
+              <h3>Active recovery is enough today</h3>
+              <p>
+                Hit your walking goal, stretch if you feel tight, and keep energy high for the next training day.
+              </p>
             </div>
           )}
         </article>
@@ -616,12 +558,12 @@ export default function App() {
           <div className="section-head">
             <div>
               <p className="eyebrow">Exercise library</p>
-              <h2>Add movements</h2>
+              <h2>Add options</h2>
             </div>
           </div>
 
           <div className="library-toolbar">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search exercise" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search movement" />
             <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
               {groups.map((group) => (
                 <option key={group} value={group}>
@@ -652,27 +594,27 @@ export default function App() {
         <article className="panel panel--summary">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Progress view</p>
-              <h2>Weekly snapshot</h2>
+              <p className="eyebrow">What to expect</p>
+              <h2>Progress timeline</h2>
             </div>
           </div>
 
           <div className="summary-stack">
             <div className="summary-row">
-              <span>Active split days</span>
-              <strong>{activeDays}</strong>
+              <span>Week 2-3</span>
+              <strong>More strength and confidence</strong>
             </div>
             <div className="summary-row">
-              <span>Primary goal</span>
-              <strong>{planner.goal}</strong>
+              <span>Week 4-6</span>
+              <strong>Visible body changes</strong>
             </div>
             <div className="summary-row">
-              <span>Current athlete</span>
-              <strong>{planner.athlete || "Unnamed"}</strong>
+              <span>Week 8</span>
+              <strong>Leaner, more defined look</strong>
             </div>
             <div className="summary-row">
-              <span>Stored locally</span>
-              <strong>Yes</strong>
+              <span>Weekly sets</span>
+              <strong>{weeklySets}</strong>
             </div>
           </div>
         </article>

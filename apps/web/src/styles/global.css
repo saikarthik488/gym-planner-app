@@ -128,7 +128,8 @@ label {
 .session-meta,
 .exercise-list,
 .library-grid,
-.summary-stack {
+.summary-stack,
+.ai-grid {
   display: grid;
   gap: 1rem;
 }
@@ -167,6 +168,20 @@ label {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.hero-points span {
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .chip-button,
@@ -236,7 +251,8 @@ dt {
 
 .panel--profile,
 .panel--week,
-.panel--summary {
+.panel--summary,
+.panel--ai {
   align-self: start;
 }
 
@@ -293,6 +309,12 @@ dt {
   font-size: 0.96rem;
 }
 
+.day-tab small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--muted);
+}
+
 .day-tab--active {
   transform: translateY(-2px);
   background:
@@ -345,7 +367,7 @@ dt {
 
 .exercise-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
   gap: 0.8rem;
   margin: 0;
 }
@@ -400,6 +422,26 @@ dd {
 .library-card strong {
   display: block;
   margin: 0.45rem 0;
+}
+
+.ai-card {
+  padding: 1rem;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(0, 209, 255, 0.08), transparent 60%),
+    rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+}
+
+.ai-card h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+}
+
+.ai-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .summary-row {
@@ -472,6 +514,6 @@ dd {
   }
 
   .exercise-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
