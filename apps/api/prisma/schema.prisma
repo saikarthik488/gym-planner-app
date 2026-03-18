@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum TaskStatus {
+  POSTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  role             Role
+  name             String
+  phone            String?
+  address          String?
+  profilePhoto     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tasks            Task[]            @relation("ClientTasks")
+  bids             Bid[]
+  reviewsReceived  Review[]          @relation("ProviderReviews")
+  reviewsWritten   Review[]          @relation("ClientReviews")
+  notifications    Notification[]
+  providerProfile  ProviderProfile?
+}
+
+model ProviderProfile {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  bio             String?
+  skills          String[]
+  serviceAreas    String[]
+  categories      Category[]
+  hourlyRate      Float?
+  ratingAverage   Float          @default(0)
+  jobsCompleted   Int            @default(0)
+  isAvailable     Boolean        @default(true)
+  verification    ProviderStatus @default(PENDING)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  description String?
+  tasks       Task[]
+  providers   ProviderProfile[]
+}
+
+model Task {
+  id                String      @id @default(cuid())
+  clientId          String
+  categoryId        String
+  title             String
+  description       String
+  location          String
+  budget            Float
+  scheduledDate     DateTime
+  status            TaskStatus  @default(POSTED)
+  assignedProviderId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  client            User        @relation("ClientTasks", fields: [clientId], references: [id], onDelete: Cascade)
+  category          Category    @relation(fields: [categoryId], references: [id])
+  bids              Bid[]
+  reviews           Review[]
+}
+
+model Bid {
+  id          String    @id @default(cuid())
+  taskId       String
+  providerId   String
+  amount       Float
+  message      String
+  status       BidStatus @default(PENDING)
+  createdAt    DateTime  @default(now())
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  provider     User      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, providerId])
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  taskId       String
+  clientId     String
+  providerId   String
+  rating       Int
+  comment      String
+  createdAt    DateTime @default(now())
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client       User     @relation("ClientReviews", fields: [clientId], references: [id], onDelete: Cascade)
+  provider     User     @relation("ProviderReviews", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, clientId, providerId])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId       String
+  title        String
+  body         String
+  isRead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

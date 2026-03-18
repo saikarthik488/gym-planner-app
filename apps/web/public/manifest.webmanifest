@@ -1,0 +1,17 @@
+{
+  "name": "Gym Planner",
+  "short_name": "GymPlanner",
+  "description": "Plan workouts, track sessions, and keep your weekly split on your phone.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#08111f",
+  "theme_color": "#08111f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,477 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Bebas+Neue&display=swap");
+
+:root {
+  color-scheme: dark;
+  --bg: #08111f;
+  --bg-top: #10233d;
+  --panel: rgba(9, 19, 35, 0.82);
+  --panel-strong: rgba(15, 28, 48, 0.94);
+  --panel-soft: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #f5f7fb;
+  --muted: #9db0cc;
+  --accent: #a3ff12;
+  --accent-deep: #79c600;
+  --highlight: #00d1ff;
+  --warning: #ff7a18;
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  font-family: "Space Grotesk", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(0, 209, 255, 0.2), transparent 26%),
+    radial-gradient(circle at top right, rgba(163, 255, 18, 0.16), transparent 24%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 48%, #050b14 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.95rem 1rem;
+  color: var(--text);
+  background: rgba(5, 11, 20, 0.8);
+}
+
+textarea {
+  resize: vertical;
+}
+
+label {
+  display: grid;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.planner-app {
+  width: min(1400px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: calc(1.25rem + env(safe-area-inset-top)) 0 calc(3rem + env(safe-area-inset-bottom));
+}
+
+.hero-panel,
+.panel,
+.metric-card,
+.exercise-card,
+.library-card,
+.day-tab {
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.hero-panel {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.2rem;
+  padding: 1.4rem;
+  border-radius: 36px;
+  background:
+    linear-gradient(135deg, rgba(0, 209, 255, 0.08), transparent 28%),
+    linear-gradient(145deg, rgba(163, 255, 18, 0.08), transparent 42%),
+    var(--panel);
+  animation: rise 500ms ease-out;
+}
+
+.hero-copy,
+.hero-stack,
+.content-grid,
+.profile-grid,
+.day-tabs,
+.session-meta,
+.exercise-list,
+.library-grid,
+.summary-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hero-panel h1,
+.section-head h2,
+.exercise-topline h3,
+.empty-state h3 {
+  margin: 0;
+}
+
+.hero-panel h1 {
+  max-width: 10ch;
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+  font-size: clamp(3.5rem, 9vw, 7rem);
+}
+
+.hero-text {
+  max-width: 58ch;
+  color: var(--muted);
+  font-size: 1.02rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.chip-button,
+.pill,
+.check-toggle {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.chip-button {
+  padding: 0.8rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.chip-button--active {
+  background: var(--accent);
+  color: #061018;
+  border-color: transparent;
+}
+
+.hero-stack {
+  align-content: start;
+}
+
+.metric-card {
+  padding: 1.1rem 1.2rem;
+  border-radius: 28px;
+  background: var(--panel-strong);
+}
+
+.metric-card span,
+.metric-card small,
+.pill,
+.exercise-copy p,
+.library-card small,
+.summary-row span,
+.exercise-topline span,
+label,
+dt {
+  color: var(--muted);
+}
+
+.metric-card strong {
+  display: block;
+  margin: 0.35rem 0;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+}
+
+.metric-card--accent {
+  background:
+    linear-gradient(135deg, rgba(163, 255, 18, 0.18), transparent 65%),
+    rgba(18, 31, 13, 0.96);
+}
+
+.content-grid {
+  grid-template-columns: 0.88fr 1.12fr;
+  margin-top: 1.2rem;
+}
+
+.panel {
+  padding: 1.2rem;
+  border-radius: 32px;
+  background: var(--panel);
+  animation: rise 600ms ease-out both;
+}
+
+.panel--profile,
+.panel--week,
+.panel--summary {
+  align-self: start;
+}
+
+.panel--session,
+.panel--library {
+  min-height: 100%;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-head h2 {
+  font-size: 1.5rem;
+}
+
+.profile-grid,
+.session-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-grid label:first-child,
+.session-meta label:first-child {
+  grid-column: 1 / -1;
+}
+
+.day-tabs {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.day-tab {
+  padding: 0.95rem 0.85rem;
+  text-align: left;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.day-tab span,
+.library-group {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--highlight);
+}
+
+.day-tab strong {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.96rem;
+}
+
+.day-tab--active {
+  transform: translateY(-2px);
+  background:
+    linear-gradient(135deg, rgba(163, 255, 18, 0.2), transparent 75%),
+    rgba(18, 31, 13, 0.92);
+}
+
+.pill {
+  padding: 0.55rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.exercise-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.check-toggle {
+  align-self: start;
+  padding: 0.7rem 0.95rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.check-toggle--done {
+  background: var(--accent);
+  color: #091018;
+  border-color: transparent;
+}
+
+.exercise-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.exercise-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.exercise-copy p {
+  margin: 0;
+}
+
+.exercise-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.exercise-stats div {
+  min-width: 72px;
+}
+
+dt {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+dd {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.library-toolbar {
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.library-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.library-card {
+  padding: 1rem;
+  border-radius: 24px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.library-card:hover,
+.day-tab:hover,
+.chip-button:hover,
+.check-toggle:hover {
+  transform: translateY(-2px);
+}
+
+.library-card:hover {
+  border-color: rgba(163, 255, 18, 0.35);
+  background: rgba(163, 255, 18, 0.08);
+}
+
+.library-card strong {
+  display: block;
+  margin: 0.45rem 0;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-row strong {
+  text-align: right;
+}
+
+.empty-state {
+  padding: 1.2rem;
+  border-radius: 28px;
+  border: 1px dashed var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1180px) {
+  .content-grid,
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .day-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .planner-app {
+    width: min(100% - 1rem, 100%);
+    padding-top: 0.6rem;
+  }
+
+  .hero-panel,
+  .panel {
+    border-radius: 24px;
+    padding: 1rem;
+  }
+
+  .profile-grid,
+  .session-meta,
+  .library-toolbar,
+  .exercise-card {
+    grid-template-columns: 1fr;
+  }
+
+  .day-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exercise-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
