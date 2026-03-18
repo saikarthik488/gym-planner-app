@@ -271,7 +271,8 @@ dt {
 }
 
 .session-actions,
-.workout-runner__actions {
+.workout-runner__actions,
+.workout-runner__meta-actions {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
@@ -617,6 +618,16 @@ dd {
   font-size: 1.3rem;
 }
 
+.runner-card--rest {
+  border-color: rgba(163, 255, 18, 0.35);
+}
+
+.workout-runner__topbar {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .workout-runner__focus {
   display: grid;
   grid-template-columns: 120px 1fr 180px;
@@ -632,6 +643,81 @@ dd {
 .workout-runner__copy p:last-child {
   margin: 0;
   color: var(--muted);
+}
+
+.workout-runner__set-progress {
+  margin-top: 0.55rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.set-logger {
+  margin-bottom: 1rem;
+}
+
+.set-logger__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.set-logger__head h3 {
+  margin: 0;
+}
+
+.set-logger__head span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.set-logger__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.set-card {
+  padding: 0.9rem;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.set-card--active {
+  border-color: rgba(0, 209, 255, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(0, 209, 255, 0.16);
+}
+
+.set-card--done {
+  border-color: rgba(163, 255, 18, 0.35);
+  background: rgba(163, 255, 18, 0.08);
+}
+
+.set-card__title {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.set-card__title span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.workout-runner--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  margin: 0;
+  border-radius: 0;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  overflow: auto;
+  background:
+    linear-gradient(180deg, rgba(8, 17, 31, 0.98), rgba(5, 11, 20, 0.98)),
+    var(--bg);
 }
 
 .ai-card h3 {
@@ -818,7 +904,8 @@ dd {
   .library-toolbar,
   .exercise-card,
   .workout-runner__focus,
-  .workout-runner__stats {
+  .workout-runner__stats,
+  .set-logger__head {
     grid-template-columns: 1fr;
   }
 

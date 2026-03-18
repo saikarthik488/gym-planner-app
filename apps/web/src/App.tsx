@@ -33,6 +33,12 @@ type Exercise = {
   animation: AnimationKind;
 };
 
+type SetLog = {
+  completed: boolean;
+  weight: string;
+  reps: string;
+};
+
 type WorkoutExercise = {
   exerciseId: string;
   sets: number;
@@ -40,6 +46,7 @@ type WorkoutExercise = {
   rest: string;
   cue: string;
   completed: boolean;
+  setLogs: SetLog[];
 };
 
 type WorkoutDay = {
@@ -65,7 +72,9 @@ type ActiveWorkout = {
   day: DayKey;
   startedAt: number;
   currentExerciseIndex: number;
+  currentSetIndex: number;
   heartRate: number | null;
+  fullscreen: boolean;
 };
 
 const STORAGE_KEY = "gym-planner-3day-state";
@@ -168,6 +177,13 @@ const library: Exercise[] = [
   }
 ];
 
+const makeSetLogs = (sets: number, reps: string): SetLog[] =>
+  Array.from({ length: sets }, () => ({
+    completed: false,
+    weight: "",
+    reps
+  }));
+
 const createExercise = (
   exerciseId: string,
   sets: number,
@@ -180,7 +196,8 @@ const createExercise = (
   reps,
   rest,
   cue,
-  completed: false
+  completed: false,
+  setLogs: makeSetLogs(sets, reps)
 });
 
 const defaultPlan: Record<DayKey, WorkoutDay> = {
@@ -268,7 +285,10 @@ const createPlanner = (): PlannerState => ({
       day,
       {
         ...defaultPlan[day],
-        exercises: defaultPlan[day].exercises.map((exercise) => ({ ...exercise }))
+        exercises: defaultPlan[day].exercises.map((exercise) => ({
+          ...exercise,
+          setLogs: exercise.setLogs.map((setLog) => ({ ...setLog }))
+        }))
       }
     ])
   ) as Record<DayKey, WorkoutDay>,
@@ -289,6 +309,16 @@ const today = new Intl.DateTimeFormat("en-AU", { weekday: "long" }).format(new D
 
 function getExercise(exerciseId: string) {
   return library.find((exercise) => exercise.id === exerciseId);
+}
+
+function restToSeconds(rest: string) {
+  const minuteMatch = rest.match(/(\d+)\s*min/i);
+  const secondMatch = rest.match(/(\d+)\s*sec/i);
+
+  const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+  const seconds = secondMatch ? Number(secondMatch[1]) : 0;
+
+  return minutes * 60 + seconds;
 }
 
 function ExerciseDemo({ exercise }: { exercise: Exercise }) {
@@ -346,6 +376,7 @@ export default function App() {
   const [groupFilter, setGroupFilter] = useState("All");
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [restRemaining, setRestRemaining] = useState(0);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(planner));
@@ -365,6 +396,25 @@ export default function App() {
     const intervalId = window.setInterval(updateElapsed, 1000);
     return () => window.clearInterval(intervalId);
   }, [activeWorkout]);
+
+  useEffect(() => {
+    if (restRemaining <= 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setRestRemaining((current) => {
+        if (current <= 1) {
+          window.clearInterval(intervalId);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [restRemaining]);
 
   const selectedWorkout = planner.days[selectedDay];
   const groups = useMemo(() => ["All", ...new Set(library.map((exercise) => exercise.group))], []);
@@ -395,6 +445,7 @@ export default function App() {
   const activeExercise =
     activeWorkout && activeSessionWorkout ? activeSessionWorkout.exercises[activeWorkout.currentExerciseIndex] : null;
   const activeExerciseDetails = activeExercise ? getExercise(activeExercise.exerciseId) : null;
+  const activeSet = activeWorkout && activeExercise ? activeExercise.setLogs[activeWorkout.currentSetIndex] : null;
   const estimatedCalories = useMemo(() => {
     if (!activeWorkout) {
       return 0;
@@ -406,22 +457,32 @@ export default function App() {
     return Math.round(((baseMet + hrBoost) * 3.5 * planner.weightKg * minutes) / 200);
   }, [activeWorkout, elapsedSeconds, planner.weightKg]);
   const formattedElapsed = new Date(elapsedSeconds * 1000).toISOString().slice(11, 19);
+  const formattedRest = new Date(restRemaining * 1000).toISOString().slice(14, 19);
+
+  const setPlannerExercise = (
+    day: DayKey,
+    exerciseIndex: number,
+    updater: (exercise: WorkoutExercise) => WorkoutExercise
+  ) => {
+    setPlanner((current) => ({
+      ...current,
+      days: {
+        ...current.days,
+        [day]: {
+          ...current.days[day],
+          exercises: current.days[day].exercises.map((exercise, index) =>
+            index === exerciseIndex ? updater(exercise) : exercise
+          )
+        }
+      }
+    }));
+  };
 
   const toggleExercise = (day: DayKey, index: number) => {
-    setPlanner((current) => {
-      const workout = current.days[day];
-      const exercises = workout.exercises.map((exercise, exerciseIndex) =>
-        exerciseIndex === index ? { ...exercise, completed: !exercise.completed } : exercise
-      );
-
-      return {
-        ...current,
-        days: {
-          ...current.days,
-          [day]: { ...workout, exercises }
-        }
-      };
-    });
+    setPlannerExercise(day, index, (exercise) => ({
+      ...exercise,
+      completed: !exercise.completed
+    }));
   };
 
   const addExerciseToDay = (exerciseId: string) => {
@@ -460,63 +521,126 @@ export default function App() {
     }
 
     setSelectedDay(day);
+    setRestRemaining(0);
     setActiveWorkout({
       day,
       startedAt: Date.now(),
       currentExerciseIndex: 0,
-      heartRate: null
+      currentSetIndex: 0,
+      heartRate: null,
+      fullscreen: window.innerWidth < 800
     });
   };
 
   const finishWorkout = () => {
     setActiveWorkout(null);
+    setRestRemaining(0);
   };
 
-  const goToNextExercise = () => {
+  const updateSetField = (
+    day: DayKey,
+    exerciseIndex: number,
+    setIndex: number,
+    field: "weight" | "reps",
+    value: string
+  ) => {
+    setPlannerExercise(day, exerciseIndex, (exercise) => ({
+      ...exercise,
+      setLogs: exercise.setLogs.map((setLog, index) =>
+        index === setIndex ? { ...setLog, [field]: value } : setLog
+      )
+    }));
+  };
+
+  const runnerClassName = `workout-runner ${activeWorkout?.fullscreen ? "workout-runner--fullscreen" : ""}`;
+
+  const completeCurrentSet = () => {
+    if (!activeWorkout || !activeExercise) {
+      return;
+    }
+
+    const { day, currentExerciseIndex, currentSetIndex } = activeWorkout;
+    const nextRest = restToSeconds(activeExercise.rest);
+
+    setPlannerExercise(day, currentExerciseIndex, (exercise) => {
+      const setLogs = exercise.setLogs.map((setLog, index) =>
+        index === currentSetIndex ? { ...setLog, completed: true } : setLog
+      );
+      const allDone = setLogs.every((setLog) => setLog.completed);
+
+      return {
+        ...exercise,
+        setLogs,
+        completed: allDone
+      };
+    });
+
+    if (currentSetIndex < activeExercise.setLogs.length - 1) {
+      setActiveWorkout((current) =>
+        current
+          ? {
+              ...current,
+              currentSetIndex: current.currentSetIndex + 1
+            }
+          : null
+      );
+      setRestRemaining(nextRest);
+      return;
+    }
+
+    const workout = planner.days[day];
+    if (currentExerciseIndex < workout.exercises.length - 1) {
+      setActiveWorkout((current) =>
+        current
+          ? {
+              ...current,
+              currentExerciseIndex: current.currentExerciseIndex + 1,
+              currentSetIndex: 0
+            }
+          : null
+      );
+      setRestRemaining(nextRest);
+      return;
+    }
+
+    finishWorkout();
+  };
+
+  const goToPreviousExercise = () => {
     if (!activeWorkout) {
       return;
     }
 
-    const workout = planner.days[activeWorkout.day];
-    const currentIndex = activeWorkout.currentExerciseIndex;
-
-    setPlanner((current) => ({
-      ...current,
-      days: {
-        ...current.days,
-        [activeWorkout.day]: {
-          ...current.days[activeWorkout.day],
-          exercises: current.days[activeWorkout.day].exercises.map((exercise, index) =>
-            index === currentIndex ? { ...exercise, completed: true } : exercise
-          )
-        }
-      }
-    }));
-
-    if (currentIndex >= workout.exercises.length - 1) {
-      finishWorkout();
+    if (activeWorkout.currentSetIndex > 0) {
+      setActiveWorkout((current) =>
+        current
+          ? {
+              ...current,
+              currentSetIndex: current.currentSetIndex - 1
+            }
+          : null
+      );
       return;
     }
 
+    if (activeWorkout.currentExerciseIndex === 0) {
+      return;
+    }
+
+    const previousExercise = planner.days[activeWorkout.day].exercises[activeWorkout.currentExerciseIndex - 1];
     setActiveWorkout((current) =>
       current
         ? {
             ...current,
-            currentExerciseIndex: current.currentExerciseIndex + 1
+            currentExerciseIndex: current.currentExerciseIndex - 1,
+            currentSetIndex: Math.max(0, previousExercise.setLogs.length - 1)
           }
         : null
     );
   };
 
-  const goToPreviousExercise = () => {
-    setActiveWorkout((current) =>
-      current
-        ? {
-            ...current,
-            currentExerciseIndex: Math.max(0, current.currentExerciseIndex - 1)
-          }
-        : null
-    );
+  const toggleFullscreenMode = () => {
+    setActiveWorkout((current) => (current ? { ...current, fullscreen: !current.fullscreen } : null));
   };
 
   return (
@@ -728,22 +852,37 @@ export default function App() {
           </div>
 
           {activeWorkout && activeWorkout.day === selectedDay ? (
-            <section className="workout-runner">
-              <div className="workout-runner__stats">
-                <article className="runner-card">
-                  <span>Workout time</span>
-                  <strong>{formattedElapsed}</strong>
-                </article>
-                <article className="runner-card">
-                  <span>Estimated calories</span>
-                  <strong>{estimatedCalories}</strong>
-                </article>
-                <article className="runner-card">
-                  <span>Current block</span>
-                  <strong>
-                    {activeWorkout.currentExerciseIndex + 1}/{selectedWorkout.exercises.length}
-                  </strong>
-                </article>
+            <section className={runnerClassName}>
+              <div className="workout-runner__topbar">
+                <div className="workout-runner__stats">
+                  <article className="runner-card">
+                    <span>Workout time</span>
+                    <strong>{formattedElapsed}</strong>
+                  </article>
+                  <article className="runner-card">
+                    <span>Estimated calories</span>
+                    <strong>{estimatedCalories}</strong>
+                  </article>
+                  <article className="runner-card">
+                    <span>Exercise</span>
+                    <strong>
+                      {activeWorkout.currentExerciseIndex + 1}/{selectedWorkout.exercises.length}
+                    </strong>
+                  </article>
+                  <article className={`runner-card ${restRemaining > 0 ? "runner-card--rest" : ""}`}>
+                    <span>Rest timer</span>
+                    <strong>{restRemaining > 0 ? formattedRest : "Ready"}</strong>
+                  </article>
+                </div>
+
+                <div className="workout-runner__meta-actions">
+                  <button type="button" className="chip-button" onClick={toggleFullscreenMode}>
+                    {activeWorkout.fullscreen ? "Exit fullscreen" : "Fullscreen mode"}
+                  </button>
+                  <button type="button" className="chip-button" onClick={() => setRestRemaining(0)}>
+                    Skip rest
+                  </button>
+                </div>
               </div>
 
               <div className="workout-runner__focus">
@@ -753,6 +892,9 @@ export default function App() {
                   <p className="eyebrow">Now doing</p>
                   <h3>{activeExerciseDetails?.name ?? "Exercise"}</h3>
                   <p>{activeExercise?.cue}</p>
+                  <p className="workout-runner__set-progress">
+                    Set {activeWorkout.currentSetIndex + 1} of {activeExercise?.setLogs.length ?? 0}
+                  </p>
                 </div>
 
                 <label>
@@ -775,14 +917,75 @@ export default function App() {
                 </label>
               </div>
 
+              {activeExercise ? (
+                <div className="set-logger">
+                  <div className="set-logger__head">
+                    <h3>Set-by-set logging</h3>
+                    <span>Enter actual weight and reps as you go</span>
+                  </div>
+
+                  <div className="set-logger__grid">
+                    {activeExercise.setLogs.map((setLog, index) => (
+                      <article
+                        key={`${activeExercise.exerciseId}-set-${index}`}
+                        className={`set-card ${index === activeWorkout.currentSetIndex ? "set-card--active" : ""} ${
+                          setLog.completed ? "set-card--done" : ""
+                        }`}
+                      >
+                        <div className="set-card__title">
+                          <strong>Set {index + 1}</strong>
+                          <span>{setLog.completed ? "Done" : "Pending"}</span>
+                        </div>
+
+                        <label>
+                          Weight
+                          <input
+                            value={setLog.weight}
+                            placeholder="kg"
+                            onChange={(event) =>
+                              updateSetField(
+                                activeWorkout.day,
+                                activeWorkout.currentExerciseIndex,
+                                index,
+                                "weight",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label>
+                          Reps
+                          <input
+                            value={setLog.reps}
+                            placeholder="reps"
+                            onChange={(event) =>
+                              updateSetField(
+                                activeWorkout.day,
+                                activeWorkout.currentExerciseIndex,
+                                index,
+                                "reps",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </label>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="workout-runner__actions">
                 <button type="button" className="chip-button" onClick={goToPreviousExercise}>
                   Previous
                 </button>
-                <button type="button" className="chip-button chip-button--active" onClick={goToNextExercise}>
-                  {activeWorkout.currentExerciseIndex === selectedWorkout.exercises.length - 1
-                    ? "Finish workout"
-                    : "Complete and next"}
+                <button type="button" className="chip-button chip-button--active" onClick={completeCurrentSet}>
+                  {activeExercise && activeWorkout.currentSetIndex === activeExercise.setLogs.length - 1
+                    ? activeWorkout.currentExerciseIndex === selectedWorkout.exercises.length - 1
+                      ? "Finish workout"
+                      : "Complete exercise"
+                    : "Complete set"}
                 </button>
                 <button type="button" className="chip-button" onClick={finishWorkout}>
                   End session
