@@ -31,6 +31,7 @@ type Exercise = {
   equipment: string;
   focus: FocusTag;
   animation: AnimationKind;
+  mediaUrl?: string;
 };
 
 type SetLog = {
@@ -60,6 +61,7 @@ type WorkoutDay = {
 type PlannerState = {
   athlete: string;
   goal: Goal;
+  trainingDays: number;
   averageSteps: number;
   weightKg: number;
   wakeupTime: string;
@@ -77,7 +79,7 @@ type ActiveWorkout = {
   fullscreen: boolean;
 };
 
-const STORAGE_KEY = "gym-planner-3day-state";
+const STORAGE_KEY = "gym-planner-3day-state-v2";
 
 const dayOrder: DayKey[] = [
   "Monday",
@@ -96,7 +98,9 @@ const library: Exercise[] = [
     group: "Chest",
     equipment: "Machine",
     focus: "Shape",
-    animation: "press"
+    animation: "press",
+    mediaUrl:
+      "https://www.verywellfit.com/thmb/0rLZAXCUilV8s2YPQu0DlxBcKAg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/3498292-GettyImages-1201544432-c0f8195580a64fed94c42a852fe87547.jpg"
   },
   {
     id: "lat-pulldown",
@@ -104,7 +108,8 @@ const library: Exercise[] = [
     group: "Back",
     equipment: "Cable",
     focus: "Shape",
-    animation: "pull"
+    animation: "pull",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1268.gif"
   },
   {
     id: "shoulder-press",
@@ -112,7 +117,8 @@ const library: Exercise[] = [
     group: "Shoulders",
     equipment: "Machine",
     focus: "Strength",
-    animation: "press"
+    animation: "press",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/876.gif"
   },
   {
     id: "supported-row",
@@ -122,17 +128,42 @@ const library: Exercise[] = [
     focus: "Shape",
     animation: "row"
   },
-  { id: "pec-fly", name: "Pec Fly", group: "Chest", equipment: "Machine", focus: "Shape", animation: "fly" },
-  { id: "leg-press", name: "Leg Press", group: "Quads", equipment: "Machine", focus: "Strength", animation: "legs" },
+  {
+    id: "pec-fly",
+    name: "Pec Fly",
+    group: "Chest",
+    equipment: "Machine",
+    focus: "Shape",
+    animation: "fly",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/172.gif"
+  },
+  {
+    id: "leg-press",
+    name: "Leg Press",
+    group: "Quads",
+    equipment: "Machine",
+    focus: "Strength",
+    animation: "legs",
+    mediaUrl: "https://www.verywellfit.com/thmb/0_4BPwSszzrmzmuVkQjwvYPYHXs=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/50-3498610-Leg-Press-GIF-7e720a89577d456db0bcb5dab2bd5d5f.gif"
+  },
   {
     id: "leg-extension",
     name: "Leg Extension",
     group: "Quads",
     equipment: "Machine",
     focus: "Shape",
-    animation: "extension"
+    animation: "extension",
+    mediaUrl: "https://www.verywellfit.com/thmb/lWAu_mpx2iLvRU1YbBkmYqSTcsg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/44-3498573-Leg-Extension-GIF-369e8d86622b4313b74baf12a03afc46.gif"
   },
-  { id: "leg-curl", name: "Leg Curl", group: "Hamstrings", equipment: "Machine", focus: "Shape", animation: "legs" },
+  {
+    id: "leg-curl",
+    name: "Leg Curl",
+    group: "Hamstrings",
+    equipment: "Machine",
+    focus: "Shape",
+    animation: "legs",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/161.gif"
+  },
   { id: "plank", name: "Plank", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "plank" },
   { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "raise" },
   {
@@ -141,7 +172,9 @@ const library: Exercise[] = [
     group: "Core",
     equipment: "Bodyweight",
     focus: "Core",
-    animation: "twist"
+    animation: "twist",
+    mediaUrl:
+      "https://app-media.fitbod.me/v2/114/images/angles/1.jpg"
   },
   {
     id: "db-curl",
@@ -149,7 +182,8 @@ const library: Exercise[] = [
     group: "Biceps",
     equipment: "Dumbbell",
     focus: "Shape",
-    animation: "curl"
+    animation: "curl",
+    mediaUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/116.gif"
   },
   {
     id: "tricep-overhead",
@@ -165,7 +199,8 @@ const library: Exercise[] = [
     group: "Shoulders",
     equipment: "Dumbbell",
     focus: "Shape",
-    animation: "raise"
+    animation: "raise",
+    mediaUrl: "https://cdn.muscleandstrength.com/sites/default/files/dumbbell-lateral-raise.jpg"
   },
   {
     id: "treadmill",
@@ -273,25 +308,101 @@ const defaultPlan: Record<DayKey, WorkoutDay> = {
   }
 };
 
+function cloneWorkoutDay(day: WorkoutDay): WorkoutDay {
+  return {
+    ...day,
+    exercises: day.exercises.map((exercise) => ({
+      ...exercise,
+      setLogs: exercise.setLogs.map((setLog) => ({ ...setLog }))
+    }))
+  };
+}
+
+function buildPlanForTrainingDays(trainingDays: number): Record<DayKey, WorkoutDay> {
+  const restDay = (label: string, subtitle: string, duration: string): WorkoutDay => ({
+    label,
+    subtitle,
+    duration,
+    dayType: "rest",
+    exercises: []
+  });
+
+  const upperTwo = cloneWorkoutDay({
+    label: "Upper 2",
+    subtitle: "Back width + shoulders + arms",
+    duration: "45-55 min",
+    dayType: "train",
+    exercises: [
+      createExercise("lat-pulldown", 3, "10-12", "45-60 sec", "Pull to upper chest with control."),
+      createExercise("supported-row", 3, "10-12", "45-60 sec", "Drive elbows back, pause at the end."),
+      createExercise("shoulder-press", 3, "10", "45-60 sec", "Do not arch your back."),
+      createExercise("db-curl", 3, "12", "45-60 sec", "Control both the lift and the lowering."),
+      createExercise("lateral-raise", 3, "12", "45-60 sec", "Raise with elbows leading.")
+    ]
+  });
+
+  const lowerTwo = cloneWorkoutDay({
+    label: "Lower 2",
+    subtitle: "Legs + core + machine focus",
+    duration: "45-55 min",
+    dayType: "train",
+    exercises: [
+      createExercise("leg-press", 3, "12", "45-60 sec", "Full range, no bouncing."),
+      createExercise("leg-extension", 3, "12", "45-60 sec", "Pause at the top each rep."),
+      createExercise("leg-curl", 3, "12", "45-60 sec", "Control the return."),
+      createExercise("plank", 3, "30-45 sec", "30 sec", "Brace and keep hips level."),
+      createExercise("leg-raises", 3, "12", "30 sec", "Do not swing.")
+    ]
+  });
+
+  if (trainingDays <= 2) {
+    return {
+      Monday: cloneWorkoutDay(defaultPlan.Monday),
+      Tuesday: restDay("Recovery Day", "Steps, stretch, recover", "13.5k steps"),
+      Wednesday: restDay("Recovery Day", "Walk, mobility, reset", "13.5k steps"),
+      Thursday: cloneWorkoutDay(defaultPlan.Wednesday),
+      Friday: restDay("Recovery Day", "Walk, mobility, reset", "13.5k steps"),
+      Saturday: restDay("Weekend Recovery", "Light activity only", "Walk + mobility"),
+      Sunday: restDay("Weekend Recovery", "Light activity only", "Walk + mobility")
+    };
+  }
+
+  if (trainingDays === 3) {
+    return Object.fromEntries(dayOrder.map((day) => [day, cloneWorkoutDay(defaultPlan[day])])) as Record<DayKey, WorkoutDay>;
+  }
+
+  if (trainingDays === 4) {
+    return {
+      Monday: cloneWorkoutDay(defaultPlan.Monday),
+      Tuesday: cloneWorkoutDay(defaultPlan.Wednesday),
+      Wednesday: restDay("Recovery Day", "Walk, mobility, reset", "13.5k steps"),
+      Thursday: upperTwo,
+      Friday: cloneWorkoutDay(defaultPlan.Friday),
+      Saturday: restDay("Weekend Recovery", "Light activity only", "Walk + mobility"),
+      Sunday: restDay("Weekend Recovery", "Light activity only", "Walk + mobility")
+    };
+  }
+
+  return {
+    Monday: cloneWorkoutDay(defaultPlan.Monday),
+    Tuesday: cloneWorkoutDay(defaultPlan.Wednesday),
+    Wednesday: upperTwo,
+    Thursday: restDay("Recovery Day", "Walk, mobility, reset", "13.5k steps"),
+    Friday: lowerTwo,
+    Saturday: cloneWorkoutDay(defaultPlan.Friday),
+    Sunday: restDay("Weekend Recovery", "Light activity only", "Walk + mobility")
+  };
+}
+
 const createPlanner = (): PlannerState => ({
   athlete: "Saika",
   goal: "Build muscle",
+  trainingDays: 3,
   averageSteps: 13500,
   weightKg: 72,
   wakeupTime: "3:30 AM",
   proteinTarget: "90-120g",
-  days: Object.fromEntries(
-    dayOrder.map((day) => [
-      day,
-      {
-        ...defaultPlan[day],
-        exercises: defaultPlan[day].exercises.map((exercise) => ({
-          ...exercise,
-          setLogs: exercise.setLogs.map((setLog) => ({ ...setLog }))
-        }))
-      }
-    ])
-  ) as Record<DayKey, WorkoutDay>,
+  days: buildPlanForTrainingDays(3),
   notes:
     "You already have the fat-loss base from daily steps. Use this plan to build shape, get stronger, and stay consistent without burning out."
 });
@@ -322,6 +433,21 @@ function restToSeconds(rest: string) {
 }
 
 function ExerciseDemo({ exercise }: { exercise: Exercise }) {
+  if (exercise.mediaUrl) {
+    return (
+      <div className="exercise-media">
+        <img
+          className="exercise-media__image"
+          src={exercise.mediaUrl}
+          alt={`${exercise.name} tutorial`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+        <span>tutorial</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`exercise-demo exercise-demo--${exercise.animation}`} aria-hidden="true">
       <div className="exercise-demo__stage">
@@ -554,6 +680,17 @@ export default function App() {
 
   const runnerClassName = `workout-runner ${activeWorkout?.fullscreen ? "workout-runner--fullscreen" : ""}`;
 
+  const applyAiWorkoutUpdate = () => {
+    setPlanner((current) => ({
+      ...current,
+      days: buildPlanForTrainingDays(current.trainingDays),
+      notes: `AI updated your week for ${current.trainingDays} training days. Keep steps high, progress weights slowly, and use recovery days to stay fresh.`
+    }));
+    setActiveWorkout(null);
+    setRestRemaining(0);
+    setSelectedDay("Monday");
+  };
+
   const completeCurrentSet = () => {
     if (!activeWorkout || !activeExercise) {
       return;
@@ -711,6 +848,21 @@ export default function App() {
               </select>
             </label>
             <label>
+              Training days
+              <select
+                value={planner.trainingDays}
+                onChange={(event) =>
+                  setPlanner((current) => ({ ...current, trainingDays: Number(event.target.value) }))
+                }
+              >
+                {[2, 3, 4, 5].map((days) => (
+                  <option key={days} value={days}>
+                    {days} days / week
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               Daily steps
               <input
                 value={planner.averageSteps}
@@ -748,6 +900,12 @@ export default function App() {
                 onChange={(event) => setPlanner((current) => ({ ...current, proteinTarget: event.target.value }))}
               />
             </label>
+          </div>
+
+          <div className="profile-actions">
+            <button type="button" className="chip-button chip-button--active" onClick={applyAiWorkoutUpdate}>
+              AI update workouts
+            </button>
           </div>
 
           <label>
