@@ -54,10 +54,18 @@ type PlannerState = {
   athlete: string;
   goal: Goal;
   averageSteps: number;
+  weightKg: number;
   wakeupTime: string;
   proteinTarget: string;
   days: Record<DayKey, WorkoutDay>;
   notes: string;
+};
+
+type ActiveWorkout = {
+  day: DayKey;
+  startedAt: number;
+  currentExerciseIndex: number;
+  heartRate: number | null;
 };
 
 const STORAGE_KEY = "gym-planner-3day-state";
@@ -252,6 +260,7 @@ const createPlanner = (): PlannerState => ({
   athlete: "Saika",
   goal: "Build muscle",
   averageSteps: 13500,
+  weightKg: 72,
   wakeupTime: "3:30 AM",
   proteinTarget: "90-120g",
   days: Object.fromEntries(
@@ -335,10 +344,27 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState<DayKey>(today);
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("All");
+  const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(planner));
   }, [planner]);
+
+  useEffect(() => {
+    if (!activeWorkout) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - activeWorkout.startedAt) / 1000)));
+    };
+
+    updateElapsed();
+    const intervalId = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [activeWorkout]);
 
   const selectedWorkout = planner.days[selectedDay];
   const groups = useMemo(() => ["All", ...new Set(library.map((exercise) => exercise.group))], []);
@@ -365,6 +391,21 @@ export default function App() {
   const weeklySets = allExercises.reduce((sum, exercise) => sum + exercise.sets, 0);
   const gymDays = dayOrder.filter((day) => planner.days[day].dayType === "train").length;
   const aiTips = createAiTips(planner, selectedDay, completionRate);
+  const activeSessionWorkout = activeWorkout ? planner.days[activeWorkout.day] : null;
+  const activeExercise =
+    activeWorkout && activeSessionWorkout ? activeSessionWorkout.exercises[activeWorkout.currentExerciseIndex] : null;
+  const activeExerciseDetails = activeExercise ? getExercise(activeExercise.exerciseId) : null;
+  const estimatedCalories = useMemo(() => {
+    if (!activeWorkout) {
+      return 0;
+    }
+
+    const minutes = elapsedSeconds / 60;
+    const baseMet = 4.8;
+    const hrBoost = activeWorkout.heartRate ? Math.max(0, (activeWorkout.heartRate - 90) * 0.018) : 0;
+    return Math.round(((baseMet + hrBoost) * 3.5 * planner.weightKg * minutes) / 200);
+  }, [activeWorkout, elapsedSeconds, planner.weightKg]);
+  const formattedElapsed = new Date(elapsedSeconds * 1000).toISOString().slice(11, 19);
 
   const toggleExercise = (day: DayKey, index: number) => {
     setPlanner((current) => {
@@ -410,6 +451,72 @@ export default function App() {
         [day]: { ...current.days[day], [field]: value }
       }
     }));
+  };
+
+  const startWorkout = (day: DayKey) => {
+    const workout = planner.days[day];
+    if (workout.dayType !== "train" || workout.exercises.length === 0) {
+      return;
+    }
+
+    setSelectedDay(day);
+    setActiveWorkout({
+      day,
+      startedAt: Date.now(),
+      currentExerciseIndex: 0,
+      heartRate: null
+    });
+  };
+
+  const finishWorkout = () => {
+    setActiveWorkout(null);
+  };
+
+  const goToNextExercise = () => {
+    if (!activeWorkout) {
+      return;
+    }
+
+    const workout = planner.days[activeWorkout.day];
+    const currentIndex = activeWorkout.currentExerciseIndex;
+
+    setPlanner((current) => ({
+      ...current,
+      days: {
+        ...current.days,
+        [activeWorkout.day]: {
+          ...current.days[activeWorkout.day],
+          exercises: current.days[activeWorkout.day].exercises.map((exercise, index) =>
+            index === currentIndex ? { ...exercise, completed: true } : exercise
+          )
+        }
+      }
+    }));
+
+    if (currentIndex >= workout.exercises.length - 1) {
+      finishWorkout();
+      return;
+    }
+
+    setActiveWorkout((current) =>
+      current
+        ? {
+            ...current,
+            currentExerciseIndex: current.currentExerciseIndex + 1
+          }
+        : null
+    );
+  };
+
+  const goToPreviousExercise = () => {
+    setActiveWorkout((current) =>
+      current
+        ? {
+            ...current,
+            currentExerciseIndex: Math.max(0, current.currentExerciseIndex - 1)
+          }
+        : null
+    );
   };
 
   return (
@@ -492,6 +599,18 @@ export default function App() {
               />
             </label>
             <label>
+              Weight (kg)
+              <input
+                value={planner.weightKg}
+                onChange={(event) =>
+                  setPlanner((current) => ({
+                    ...current,
+                    weightKg: Number(event.target.value.replace(/\D/g, "")) || 0
+                  }))
+                }
+              />
+            </label>
+            <label>
               Wake-up routine
               <input
                 value={planner.wakeupTime}
@@ -524,6 +643,11 @@ export default function App() {
               <h2>Smart guidance</h2>
             </div>
             <span className="pill">Frontend only</span>
+          </div>
+
+          <div className="ai-note">
+            AirPods heart rate is not available to a static web app. This app supports manual live heart-rate input and
+            estimated calories during a workout.
           </div>
 
           <div className="ai-grid">
@@ -569,7 +693,14 @@ export default function App() {
               <p className="eyebrow">{selectedWorkout.dayType === "train" ? "Gym day" : "Recovery day"}</p>
               <h2>{selectedWorkout.label}</h2>
             </div>
-            <span className="pill">{selectedWorkout.duration}</span>
+            <div className="session-actions">
+              <span className="pill">{selectedWorkout.duration}</span>
+              {selectedWorkout.dayType === "train" ? (
+                <button type="button" className="chip-button chip-button--active" onClick={() => startWorkout(selectedDay)}>
+                  Start this workout
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="session-meta">
@@ -595,6 +726,70 @@ export default function App() {
               />
             </label>
           </div>
+
+          {activeWorkout && activeWorkout.day === selectedDay ? (
+            <section className="workout-runner">
+              <div className="workout-runner__stats">
+                <article className="runner-card">
+                  <span>Workout time</span>
+                  <strong>{formattedElapsed}</strong>
+                </article>
+                <article className="runner-card">
+                  <span>Estimated calories</span>
+                  <strong>{estimatedCalories}</strong>
+                </article>
+                <article className="runner-card">
+                  <span>Current block</span>
+                  <strong>
+                    {activeWorkout.currentExerciseIndex + 1}/{selectedWorkout.exercises.length}
+                  </strong>
+                </article>
+              </div>
+
+              <div className="workout-runner__focus">
+                {activeExerciseDetails ? <ExerciseDemo exercise={activeExerciseDetails} /> : null}
+
+                <div className="workout-runner__copy">
+                  <p className="eyebrow">Now doing</p>
+                  <h3>{activeExerciseDetails?.name ?? "Exercise"}</h3>
+                  <p>{activeExercise?.cue}</p>
+                </div>
+
+                <label>
+                  Live heart rate
+                  <input
+                    value={activeWorkout.heartRate ?? ""}
+                    inputMode="numeric"
+                    placeholder="Enter bpm"
+                    onChange={(event) =>
+                      setActiveWorkout((current) =>
+                        current
+                          ? {
+                              ...current,
+                              heartRate: event.target.value === "" ? null : Number(event.target.value)
+                            }
+                          : null
+                      )
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="workout-runner__actions">
+                <button type="button" className="chip-button" onClick={goToPreviousExercise}>
+                  Previous
+                </button>
+                <button type="button" className="chip-button chip-button--active" onClick={goToNextExercise}>
+                  {activeWorkout.currentExerciseIndex === selectedWorkout.exercises.length - 1
+                    ? "Finish workout"
+                    : "Complete and next"}
+                </button>
+                <button type="button" className="chip-button" onClick={finishWorkout}>
+                  End session
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {selectedWorkout.dayType === "train" ? (
             <div className="exercise-list">
