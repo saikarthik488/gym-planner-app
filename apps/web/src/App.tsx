@@ -82,6 +82,7 @@ type ActiveWorkout = {
 };
 
 const STORAGE_KEY = "gym-planner-3day-state-v2";
+const APP_VERSION = "2026-03-18-5";
 const equipmentOptions: EquipmentType[] = ["Machine", "Cable", "Dumbbell", "Bodyweight", "Treadmill"];
 
 const dayOrder: DayKey[] = [
@@ -848,6 +849,7 @@ export default function App() {
             <span>Day 1: Upper body</span>
             <span>Day 3: Lower body + core</span>
             <span>Day 5: Full body</span>
+            <span>Version: {APP_VERSION}</span>
           </div>
         </div>
 
