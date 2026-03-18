@@ -6,8 +6,20 @@ ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {
-      // Ignore registration failures in unsupported/static preview environments.
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.unregister();
+      });
+    });
+  });
+}
+
+if ("caches" in window) {
+  window.addEventListener("load", () => {
+    window.caches.keys().then((keys) => {
+      keys.forEach((key) => {
+        window.caches.delete(key);
+      });
     });
   });
 }
