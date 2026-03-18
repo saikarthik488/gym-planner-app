@@ -329,11 +329,142 @@ dt {
 
 .exercise-card {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 120px auto 1fr auto;
   gap: 1rem;
   padding: 1rem;
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.04);
+}
+
+.exercise-demo {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.exercise-demo span {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--highlight);
+}
+
+.exercise-demo__stage {
+  position: relative;
+  height: 100px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at top, rgba(0, 209, 255, 0.18), transparent 45%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+}
+
+.exercise-demo__machine,
+.exercise-demo__track,
+.exercise-demo__body,
+.exercise-demo__limb,
+.exercise-demo__weight {
+  position: absolute;
+}
+
+.exercise-demo__machine {
+  inset: 12px auto 12px 14px;
+  width: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.exercise-demo__track {
+  top: 22px;
+  left: 30px;
+  width: 58px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.exercise-demo__body {
+  left: 48px;
+  top: 35px;
+  width: 16px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.exercise-demo__limb {
+  left: 56px;
+  top: 32px;
+  width: 28px;
+  height: 6px;
+  border-radius: 999px;
+  transform-origin: left center;
+  background: var(--highlight);
+  animation: demo-swing 1.5s ease-in-out infinite;
+}
+
+.exercise-demo__limb--right {
+  top: 72px;
+  width: 24px;
+  background: rgba(163, 255, 18, 0.85);
+  animation-name: demo-kick;
+}
+
+.exercise-demo__weight {
+  top: 18px;
+  left: 76px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.2);
+  animation: demo-float 1.5s ease-in-out infinite;
+}
+
+.exercise-demo--pull .exercise-demo__weight,
+.exercise-demo--row .exercise-demo__weight {
+  animation-name: demo-pull;
+}
+
+.exercise-demo--legs .exercise-demo__limb--right,
+.exercise-demo--extension .exercise-demo__limb--right,
+.exercise-demo--raise .exercise-demo__limb--right {
+  animation-name: demo-lift;
+}
+
+.exercise-demo--plank .exercise-demo__body {
+  top: 56px;
+  left: 28px;
+  width: 50px;
+  height: 10px;
+  animation: demo-plank 1.4s ease-in-out infinite;
+}
+
+.exercise-demo--plank .exercise-demo__limb,
+.exercise-demo--plank .exercise-demo__weight {
+  display: none;
+}
+
+.exercise-demo--walk .exercise-demo__body {
+  animation: demo-step 0.9s linear infinite;
+}
+
+.exercise-demo--walk .exercise-demo__limb {
+  animation-duration: 0.9s;
+}
+
+.exercise-demo--fly .exercise-demo__limb {
+  width: 18px;
+  animation-name: demo-fly;
+}
+
+.exercise-demo--twist .exercise-demo__body {
+  animation: demo-twist 1s ease-in-out infinite;
+}
+
+.exercise-demo--twist .exercise-demo__limb {
+  animation-name: demo-twist-arm;
 }
 
 .check-toggle {
@@ -476,6 +607,116 @@ dd {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes demo-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(8px, -10px);
+  }
+}
+
+@keyframes demo-pull {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-10px, 16px);
+  }
+}
+
+@keyframes demo-swing {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(-28deg);
+  }
+}
+
+@keyframes demo-kick {
+  0%,
+  100% {
+    transform: rotate(20deg);
+  }
+
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes demo-lift {
+  0%,
+  100% {
+    transform: rotate(18deg);
+  }
+
+  50% {
+    transform: rotate(-60deg);
+  }
+}
+
+@keyframes demo-plank {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes demo-step {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes demo-fly {
+  0%,
+  100% {
+    transform: rotate(-20deg);
+  }
+
+  50% {
+    transform: rotate(22deg);
+  }
+}
+
+@keyframes demo-twist {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes demo-twist-arm {
+  0%,
+  100% {
+    transform: rotate(-40deg);
+  }
+
+  50% {
+    transform: rotate(18deg);
   }
 }
 

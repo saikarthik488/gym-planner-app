@@ -11,6 +11,18 @@ type DayKey =
 
 type Goal = "Build muscle" | "Lose fat" | "Lean out";
 type FocusTag = "Strength" | "Shape" | "Recovery" | "Core";
+type AnimationKind =
+  | "press"
+  | "pull"
+  | "row"
+  | "fly"
+  | "legs"
+  | "curl"
+  | "extension"
+  | "plank"
+  | "raise"
+  | "twist"
+  | "walk";
 
 type Exercise = {
   id: string;
@@ -18,6 +30,7 @@ type Exercise = {
   group: string;
   equipment: string;
   focus: FocusTag;
+  animation: AnimationKind;
 };
 
 type WorkoutExercise = {
@@ -60,27 +73,91 @@ const dayOrder: DayKey[] = [
 ];
 
 const library: Exercise[] = [
-  { id: "chest-press", name: "Chest Press", group: "Chest", equipment: "Machine", focus: "Shape" },
-  { id: "lat-pulldown", name: "Lat Pulldown", group: "Back", equipment: "Cable", focus: "Shape" },
-  { id: "shoulder-press", name: "Shoulder Press", group: "Shoulders", equipment: "Machine", focus: "Strength" },
-  { id: "supported-row", name: "Supported Row", group: "Back", equipment: "Machine", focus: "Shape" },
-  { id: "pec-fly", name: "Pec Fly", group: "Chest", equipment: "Machine", focus: "Shape" },
-  { id: "leg-press", name: "Leg Press", group: "Quads", equipment: "Machine", focus: "Strength" },
-  { id: "leg-extension", name: "Leg Extension", group: "Quads", equipment: "Machine", focus: "Shape" },
-  { id: "leg-curl", name: "Leg Curl", group: "Hamstrings", equipment: "Machine", focus: "Shape" },
-  { id: "plank", name: "Plank", group: "Core", equipment: "Bodyweight", focus: "Core" },
-  { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight", focus: "Core" },
-  { id: "russian-twists", name: "Russian Twists", group: "Core", equipment: "Bodyweight", focus: "Core" },
-  { id: "db-curl", name: "Dumbbell Bicep Curl", group: "Biceps", equipment: "Dumbbell", focus: "Shape" },
+  {
+    id: "chest-press",
+    name: "Chest Press",
+    group: "Chest",
+    equipment: "Machine",
+    focus: "Shape",
+    animation: "press"
+  },
+  {
+    id: "lat-pulldown",
+    name: "Lat Pulldown",
+    group: "Back",
+    equipment: "Cable",
+    focus: "Shape",
+    animation: "pull"
+  },
+  {
+    id: "shoulder-press",
+    name: "Shoulder Press",
+    group: "Shoulders",
+    equipment: "Machine",
+    focus: "Strength",
+    animation: "press"
+  },
+  {
+    id: "supported-row",
+    name: "Supported Row",
+    group: "Back",
+    equipment: "Machine",
+    focus: "Shape",
+    animation: "row"
+  },
+  { id: "pec-fly", name: "Pec Fly", group: "Chest", equipment: "Machine", focus: "Shape", animation: "fly" },
+  { id: "leg-press", name: "Leg Press", group: "Quads", equipment: "Machine", focus: "Strength", animation: "legs" },
+  {
+    id: "leg-extension",
+    name: "Leg Extension",
+    group: "Quads",
+    equipment: "Machine",
+    focus: "Shape",
+    animation: "extension"
+  },
+  { id: "leg-curl", name: "Leg Curl", group: "Hamstrings", equipment: "Machine", focus: "Shape", animation: "legs" },
+  { id: "plank", name: "Plank", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "plank" },
+  { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight", focus: "Core", animation: "raise" },
+  {
+    id: "russian-twists",
+    name: "Russian Twists",
+    group: "Core",
+    equipment: "Bodyweight",
+    focus: "Core",
+    animation: "twist"
+  },
+  {
+    id: "db-curl",
+    name: "Dumbbell Bicep Curl",
+    group: "Biceps",
+    equipment: "Dumbbell",
+    focus: "Shape",
+    animation: "curl"
+  },
   {
     id: "tricep-overhead",
     name: "Tricep Overhead Extension",
     group: "Triceps",
     equipment: "Dumbbell",
-    focus: "Shape"
+    focus: "Shape",
+    animation: "extension"
   },
-  { id: "lateral-raise", name: "Lateral Raise", group: "Shoulders", equipment: "Dumbbell", focus: "Shape" },
-  { id: "treadmill", name: "Treadmill Walk", group: "Cardio", equipment: "Treadmill", focus: "Recovery" }
+  {
+    id: "lateral-raise",
+    name: "Lateral Raise",
+    group: "Shoulders",
+    equipment: "Dumbbell",
+    focus: "Shape",
+    animation: "raise"
+  },
+  {
+    id: "treadmill",
+    name: "Treadmill Walk",
+    group: "Cardio",
+    equipment: "Treadmill",
+    focus: "Recovery",
+    animation: "walk"
+  }
 ];
 
 const createExercise = (
@@ -203,6 +280,22 @@ const today = new Intl.DateTimeFormat("en-AU", { weekday: "long" }).format(new D
 
 function getExercise(exerciseId: string) {
   return library.find((exercise) => exercise.id === exerciseId);
+}
+
+function ExerciseDemo({ exercise }: { exercise: Exercise }) {
+  return (
+    <div className={`exercise-demo exercise-demo--${exercise.animation}`} aria-hidden="true">
+      <div className="exercise-demo__stage">
+        <div className="exercise-demo__machine" />
+        <div className="exercise-demo__track" />
+        <div className="exercise-demo__body" />
+        <div className="exercise-demo__limb exercise-demo__limb--left" />
+        <div className="exercise-demo__limb exercise-demo__limb--right" />
+        <div className="exercise-demo__weight" />
+      </div>
+      <span>{exercise.animation}</span>
+    </div>
+  );
 }
 
 function createAiTips(planner: PlannerState, selectedDay: DayKey, completionRate: number) {
@@ -510,6 +603,8 @@ export default function App() {
 
                 return (
                   <article key={`${entry.exerciseId}-${index}`} className="exercise-card">
+                    {exercise ? <ExerciseDemo exercise={exercise} /> : null}
+
                     <button
                       type="button"
                       className={`check-toggle ${entry.completed ? "check-toggle--done" : ""}`}
@@ -581,6 +676,7 @@ export default function App() {
                 className="library-card"
                 onClick={() => addExerciseToDay(exercise.id)}
               >
+                <ExerciseDemo exercise={exercise} />
                 <span className="library-group">{exercise.group}</span>
                 <strong>{exercise.name}</strong>
                 <small>
